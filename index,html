@@ -1,0 +1,397 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #3730a3;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px #0001;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        input, select, button {
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            background: #4f46e5;
+            color: white;
+            margin-top: 12px;
+        }
+
+        .delete {
+            background: #dc2626;
+            margin: 0;
+        }
+
+        .edit {
+            background: #0284c7;
+            margin: 0;
+        }
+
+        .stats {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            flex: 1;
+            min-width: 120px;
+            background: #eef2ff;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 25px;
+            color: #4338ca;
+            margin-top: 8px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 650px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        th {
+            background: #eef2ff;
+        }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 Student Management System</h1>
+
+    <div class="card">
+        <h2>Dashboard</h2>
+        <div class="stats">
+            <div class="stat">
+                Total Students
+                <strong id="total">0</strong>
+            </div>
+            <div class="stat">
+                Passed Students
+                <strong id="passed">0</strong>
+            </div>
+            <div class="stat">
+                Average Marks
+                <strong id="average">0%</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 id="formTitle">Add Student</h2>
+
+        <form id="studentForm">
+            <input type="hidden" id="editId">
+
+            <div class="form-grid">
+                <input id="name" placeholder="Student Name" required>
+                <input id="roll" placeholder="Roll Number" required>
+
+                <select id="className" required>
+                    <option value="">Select Class</option>
+                    <option>Class 6</option>
+                    <option>Class 7</option>
+                    <option>Class 8</option>
+                    <option>Class 9</option>
+                    <option>Class 10</option>
+                    <option>Class 11</option>
+                    <option>Class 12</option>
+                    <option>College</option>
+                </select>
+
+                <input id="email" type="email" placeholder="Email">
+                <input id="phone" type="tel" placeholder="Phone">
+                <input id="marks" type="number" min="0" max="100"
+                       placeholder="Marks (0-100)" required>
+            </div>
+
+            <button type="submit" id="saveBtn">Save Student</button>
+            <button type="button" id="cancelBtn" hidden>
+                Cancel Edit
+            </button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Student Records</h2>
+
+        <input id="search" placeholder="Search students..."
+               style="margin-bottom:15px">
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Roll No.</th>
+                        <th>Class</th>
+                        <th>Marks</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="studentList"></tbody>
+            </table>
+        </div>
+        <p id="empty">No students added yet.</p>
+        <button type="button" id="exportBtn">Export CSV</button>
+    </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = "studentManagementRecords";
+let students = [];
+
+try {
+    students = JSON.parse(localStorage.getItem(KEY) || "[]");
+    if (!Array.isArray(students)) students = [];
+} catch {
+    students = [];
+}
+
+function saveData() {
+    try {
+        localStorage.setItem(KEY, JSON.stringify(students));
+        return true;
+    } catch {
+        alert("Unable to save data in this browser.");
+        return false;
+    }
+}
+
+function safe(value) {
+    return String(value ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[c]));
+}
+
+function resetForm() {
+    $("studentForm").reset();
+    $("editId").value = "";
+    $("formTitle").textContent = "Add Student";
+    $("saveBtn").textContent = "Save Student";
+    $("cancelBtn").hidden = true;
+}
+
+$("studentForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const id = $("editId").value;
+    const student = {
+        name: $("name").value.trim(),
+        roll: $("roll").value.trim(),
+        className: $("className").value,
+        email: $("email").value.trim(),
+        phone: $("phone").value.trim(),
+        marks: Number($("marks").value)
+    };
+
+    if (!student.name || !student.roll ||
+        !student.className || $("marks").value === "" ||
+        !Number.isFinite(student.marks) ||
+        student.marks < 0 || student.marks > 100) {
+        alert("Please enter valid student details.");
+        return;
+    }
+
+    if (students.some(s =>
+        s.roll.toLowerCase() === student.roll.toLowerCase()
+        && s.id !== id)) {
+        alert("Roll number already exists!");
+        return;
+    }
+
+    if (id) {
+        students = students.map(s =>
+            s.id === id ? { ...s, ...student } : s
+        );
+    } else {
+        students.push({
+            id: crypto.randomUUID
+                ? crypto.randomUUID()
+                : String(Date.now()),
+            ...student
+        });
+    }
+
+    if (saveData()) {
+        resetForm();
+        render();
+    }
+});
+
+function render() {
+    const q = $("search").value.toLowerCase().trim();
+
+    const filtered = students.filter(s =>
+        [s.name, s.roll, s.className, s.email, s.phone]
+            .join(" ").toLowerCase().includes(q)
+    );
+
+    $("studentList").innerHTML = filtered.map(s => `
+        <tr>
+            <td>${safe(s.name)}</td>
+            <td>${safe(s.roll)}</td>
+            <td>${safe(s.className)}</td>
+            <td>${safe(s.marks)}%</td>
+            <td>${Number(s.marks) >= 35 ? "Pass" : "Fail"}</td>
+            <td>
+                <button class="edit" data-action="edit"
+                    data-id="${safe(s.id)}">Edit</button>
+                <button class="delete" data-action="delete"
+                    data-id="${safe(s.id)}">Delete</button>
+            </td>
+        </tr>
+    `).join("");
+
+    $("empty").hidden = filtered.length > 0;
+    $("total").textContent = students.length;
+    $("passed").textContent =
+        students.filter(s => Number(s.marks) >= 35).length;
+
+    const avg = students.length
+        ? students.reduce((sum, s) => sum + Number(s.marks), 0)
+            / students.length
+        : 0;
+
+    $("average").textContent = avg.toFixed(1) + "%";
+}
+
+$("studentList").addEventListener("click", function(e) {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+
+    const student = students.find(s => s.id === btn.dataset.id);
+    if (!student) return;
+
+    if (btn.dataset.action === "edit") {
+        $("editId").value = student.id;
+        $("name").value = student.name;
+        $("roll").value = student.roll;
+        $("className").value = student.className;
+        $("email").value = student.email || "";
+        $("phone").value = student.phone || "";
+        $("marks").value = student.marks;
+
+        $("formTitle").textContent = "Edit Student";
+        $("saveBtn").textContent = "Update Student";
+        $("cancelBtn").hidden = false;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (btn.dataset.action === "delete") {
+        if (confirm("Delete " + student.name + "?")) {
+            const previous = students;
+            students = students.filter(s => s.id !== student.id);
+
+            if (saveData()) {
+                if ($("editId").value === student.id) resetForm();
+                render();
+            } else {
+                students = previous;
+            }
+        }
+    }
+});
+
+$("cancelBtn").addEventListener("click", resetForm);
+$("search").addEventListener("input", render);
+
+$("exportBtn").addEventListener("click", function() {
+    if (!students.length) {
+        alert("No records to export.");
+        return;
+    }
+
+    const keys = ["name", "roll", "className", "email", "phone", "marks"];
+    const cell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    const csv = [
+        keys.join(","),
+        ...students.map(s => keys.map(k => cell(s[k])).join(","))
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+        type: "text/csv;charset=utf-8"
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "student-records.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+render();
+</script>
+
+</body>
+</html>
